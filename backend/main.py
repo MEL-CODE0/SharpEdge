@@ -11,7 +11,7 @@ import os
 
 from .database import init_db
 from .odds_api.scheduler import start_background_loop, stop_background_loop
-from .routers import auth, opportunities, value_bets, scanner, profile, password_reset
+from .routers import auth, opportunities, value_bets, scanner, profile, password_reset, bets, history
 
 logging.basicConfig(level=logging.INFO)
 
@@ -58,6 +58,8 @@ app.include_router(value_bets.router)
 app.include_router(scanner.router)
 app.include_router(profile.router)
 app.include_router(password_reset.router)
+app.include_router(bets.router)
+app.include_router(history.router)
 
 
 @app.get("/api/health")

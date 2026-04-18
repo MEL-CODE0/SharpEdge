@@ -1,15 +1,18 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from './store'
+import { useAuthStore } from './store/index'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import Dashboard from './pages/Dashboard'
 import Arbitrage from './pages/Arbitrage'
 import ValueBets from './pages/ValueBets'
 import Scanner from './pages/Scanner'
-import Settings from './pages/Settings'
+import BetTracker from './pages/BetTracker'
+import Stats from './pages/Stats'
+import History from './pages/History'
 import Calculator from './pages/Calculator'
-import ForgotPassword from './pages/ForgotPassword'
+import Settings from './pages/Settings'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -35,6 +38,9 @@ export default function App() {
         <Route path="arbitrage" element={<Arbitrage />} />
         <Route path="value-bets" element={<ValueBets />} />
         <Route path="scanner" element={<Scanner />} />
+        <Route path="bet-tracker" element={<BetTracker />} />
+        <Route path="stats" element={<Stats />} />
+        <Route path="history" element={<History />} />
         <Route path="calculator" element={<Calculator />} />
         <Route path="settings" element={<Settings />} />
       </Route>

@@ -286,6 +286,115 @@ function EVCalc() {
   )
 }
 
+// ── Odds Converter ────────────────────────────────────────────
+function OddsConverter() {
+  const [input, setInput] = useState('')
+  const [from, setFrom] = useState('decimal')
+
+  const parse = (val, type) => {
+    const v = val.trim()
+    if (!v) return null
+    try {
+      if (type === 'decimal') {
+        const d = parseFloat(v)
+        return d > 1 ? d : null
+      }
+      if (type === 'american') {
+        const a = parseFloat(v)
+        if (isNaN(a)) return null
+        return a > 0 ? (a / 100) + 1 : (100 / Math.abs(a)) + 1
+      }
+      if (type === 'fractional') {
+        const parts = v.split('/')
+        if (parts.length === 2) {
+          const [n, d] = parts.map(Number)
+          return d ? (n / d) + 1 : null
+        }
+        return null
+      }
+      if (type === 'implied') {
+        const p = parseFloat(v)
+        return (p > 0 && p < 100) ? 100 / p : null
+      }
+    } catch { return null }
+    return null
+  }
+
+  const decimal = parse(input, from)
+
+  const toAmerican = (d) => {
+    if (!d || d <= 1) return '—'
+    if (d >= 2) return `+${Math.round((d - 1) * 100)}`
+    return `${Math.round(-100 / (d - 1))}`
+  }
+  const toFractional = (d) => {
+    if (!d || d <= 1) return '—'
+    const n = d - 1
+    // Find GCD for simplification
+    const gcd = (a, b) => b < 0.001 ? a : gcd(b, a % b)
+    const mult = 100
+    const num = Math.round(n * mult)
+    const den = mult
+    const g = gcd(num, den)
+    return `${num / g}/${den / g}`
+  }
+  const toImplied = (d) => d ? `${(100 / d).toFixed(2)}%` : '—'
+
+  const results = decimal ? [
+    { label: 'Decimal', value: decimal.toFixed(3) },
+    { label: 'American', value: toAmerican(decimal) },
+    { label: 'Fractional', value: toFractional(decimal) },
+    { label: 'Implied %', value: toImplied(decimal) },
+  ] : []
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+      <h2 className="text-lg font-semibold mb-1">💱 Odds Converter</h2>
+      <p className="text-gray-500 text-sm mb-5">Convert between any odds format instantly</p>
+
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1.5">Input format</label>
+          <select value={from} onChange={e => { setFrom(e.target.value); setInput('') }}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500">
+            <option value="decimal">Decimal (e.g. 2.50)</option>
+            <option value="american">American (e.g. +150 or -200)</option>
+            <option value="fractional">Fractional (e.g. 3/2)</option>
+            <option value="implied">Implied % (e.g. 45)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1.5">
+            {from === 'decimal' ? 'Decimal odds' : from === 'american' ? 'American odds' : from === 'fractional' ? 'Fractional (n/d)' : 'Probability (%)'}
+          </label>
+          <input value={input} onChange={e => setInput(e.target.value)}
+            placeholder={from === 'decimal' ? '2.50' : from === 'american' ? '+150' : from === 'fractional' ? '3/2' : '40'}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500" />
+        </div>
+      </div>
+
+      {results.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3">
+          {results.map(r => (
+            <div key={r.label} className="bg-gray-800 rounded-xl px-4 py-3">
+              <p className="text-gray-500 text-xs mb-1">{r.label}</p>
+              <p className="text-orange-400 font-bold font-mono text-lg">{r.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : input ? (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+          Invalid input for {from} format
+        </div>
+      ) : (
+        <div className="p-4 bg-gray-800 rounded-xl text-gray-600 text-sm text-center">
+          Enter odds above to see conversions
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────
 export default function Calculator() {
   const [tab, setTab] = useState('arb')
@@ -293,16 +402,17 @@ export default function Calculator() {
     { key: 'arb', label: '⚡ Arbitrage' },
     { key: 'kelly', label: '💰 Kelly Stake' },
     { key: 'ev', label: '📊 Value / EV' },
+    { key: 'convert', label: '💱 Convert' },
   ]
 
   return (
     <div className="p-8 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Calculator</h1>
-        <p className="text-gray-500 text-sm mt-1">Stake sizing, arbitrage and expected value tools</p>
+        <p className="text-gray-500 text-sm mt-1">Stake sizing, arbitrage, EV and odds conversion tools</p>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -316,6 +426,7 @@ export default function Calculator() {
       {tab === 'arb' && <ArbCalc />}
       {tab === 'kelly' && <KellyCalc />}
       {tab === 'ev' && <EVCalc />}
+      {tab === 'convert' && <OddsConverter />}
     </div>
   )
 }

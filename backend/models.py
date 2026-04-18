@@ -72,6 +72,24 @@ class ValueBet(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class BetLog(Base):
+    __tablename__ = "bet_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    match_name: Mapped[str] = mapped_column(String(200))
+    sport: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    bookmaker: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bet_type: Mapped[str] = mapped_column(String(20), default="manual")  # arb / value / manual
+    odds: Mapped[float] = mapped_column(Float)
+    stake: Mapped[float] = mapped_column(Float)
+    result: Mapped[str] = mapped_column(String(10), default="pending")   # pending / win / loss / void
+    profit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    placed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class ScannerRun(Base):
     __tablename__ = "scanner_runs"
 
