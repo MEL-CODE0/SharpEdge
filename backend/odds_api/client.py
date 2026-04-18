@@ -37,7 +37,7 @@ class OddsAPIClient:
         markets: str = "h2h",
         bookmakers: str | None = None,
         odds_format: str = "decimal",
-        days_ahead: int = 3,
+        days_ahead: int = 7,
     ) -> tuple[list[dict], dict]:
         params = dict(regions=regions, markets=markets, oddsFormat=odds_format)
         if bookmakers:
