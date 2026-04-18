@@ -29,6 +29,7 @@ class ArbitrageOpportunity(Base):
     legs: Mapped[dict] = mapped_column(JSON)
     signal: Mapped[str] = mapped_column(String(10), default="caution")
     is_priority: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -51,6 +52,7 @@ class ValueBet(Base):
     sharp_books_agree: Mapped[int] = mapped_column(Integer, default=0)
     signal: Mapped[str] = mapped_column(String(10), default="caution")
     is_priority: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

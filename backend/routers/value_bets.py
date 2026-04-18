@@ -13,6 +13,8 @@ router = APIRouter(prefix="/api/value-bets", tags=["value_bets"])
 async def list_value_bets(
     sport: str | None = None,
     bookmaker: str | None = None,
+    live: bool | None = None,
+    priority: bool | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -23,7 +25,11 @@ async def list_value_bets(
         q = q.where(ValueBet.sport_key == sport)
     if bookmaker:
         q = q.where(ValueBet.bookmaker == bookmaker)
-    q = q.order_by(desc(ValueBet.ev_pct))
+    if live is not None:
+        q = q.where(ValueBet.is_live == live)
+    if priority:
+        q = q.where(ValueBet.is_priority == True)
+    q = q.order_by(ValueBet.is_priority.desc(), desc(ValueBet.ev_pct))
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar()
@@ -48,6 +54,7 @@ async def list_value_bets(
             "sharp_books_agree": r.sharp_books_agree,
             "signal": getattr(r, "signal", "caution"),
             "is_priority": getattr(r, "is_priority", False),
+            "is_live": getattr(r, "is_live", False),
             "detected_at": r.detected_at.isoformat(),
         }
         for r in rows

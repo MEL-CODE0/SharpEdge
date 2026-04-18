@@ -54,8 +54,10 @@ async def init_db():
             migrations = [
                 "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS signal VARCHAR(10) DEFAULT 'caution'",
                 "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS signal VARCHAR(10) DEFAULT 'caution'",
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE",
             ]
             from sqlalchemy import text
             for sql in migrations:

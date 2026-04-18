@@ -19,6 +19,10 @@ def _parse_dt(s: str) -> datetime:
 def _hours_to_start(commence_time: datetime) -> float:
     return (commence_time - datetime.utcnow()).total_seconds() / 3600
 
+def _is_live(commence_time: datetime) -> bool:
+    """Event has already started."""
+    return datetime.utcnow() >= commence_time
+
 
 # ─────────────────────────────────────────────────────────────
 #  SIGNAL SCORING
@@ -116,6 +120,7 @@ def find_arbitrage(events: list[dict], min_profit_pct: float = 0.5) -> list[dict
             "legs": legs,
             "signal": _arb_signal(profit_pct, hours, legs),
             "is_priority": is_priority,
+            "is_live": _is_live(commence_time),
         })
 
     # Sort: priority first, then by profit
@@ -182,6 +187,7 @@ def find_value_bets(events: list[dict], min_ev_pct: float = 2.0) -> list[dict]:
                         "sharp_books_agree": agree,
                         "signal": _vb_signal(ev_pct, kelly, agree, hours),
                         "is_priority": is_priority,
+                        "is_live": _is_live(commence_time),
                     })
 
     # Sort: priority first, then by EV
