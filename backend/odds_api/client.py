@@ -3,6 +3,7 @@ Thin async wrapper around The Odds API v4.
 Docs: https://the-odds-api.com/liveapi/guides/v4/
 """
 import httpx
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 BASE = "https://api.the-odds-api.com/v4"
@@ -36,9 +37,13 @@ class OddsAPIClient:
         markets: str = "h2h",
         bookmakers: str | None = None,
         odds_format: str = "decimal",
+        days_ahead: int = 3,
     ) -> tuple[list[dict], dict]:
         params = dict(regions=regions, markets=markets, oddsFormat=odds_format)
         if bookmakers:
             params["bookmakers"] = bookmakers
+        # Only fetch events starting within the next N days
+        cutoff = datetime.now(timezone.utc) + timedelta(days=days_ahead)
+        params["commenceTimeTo"] = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
         data, quota = await self._get(f"/sports/{sport}/odds", **params)
         return data, quota
