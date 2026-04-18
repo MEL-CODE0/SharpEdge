@@ -6,6 +6,7 @@ const navItems = [
   { to: '/arbitrage', label: 'Arbitrage', icon: '⚡' },
   { to: '/value-bets', label: 'Value Bets', icon: '💎' },
   { to: '/scanner', label: 'Scanner', icon: '🔍' },
+  { to: '/calculator', label: 'Calculator', icon: '🧮' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ]
 
