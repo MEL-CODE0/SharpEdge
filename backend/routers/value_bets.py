@@ -46,6 +46,8 @@ async def list_value_bets(
             "ev_pct": r.ev_pct,
             "kelly_fraction": r.kelly_fraction,
             "sharp_books_agree": r.sharp_books_agree,
+            "signal": getattr(r, "signal", "caution"),
+            "is_priority": getattr(r, "is_priority", False),
             "detected_at": r.detected_at.isoformat(),
         }
         for r in rows

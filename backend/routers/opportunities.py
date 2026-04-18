@@ -38,6 +38,8 @@ async def list_opportunities(
             "market": r.market,
             "profit_pct": r.profit_pct,
             "legs": r.legs,
+            "signal": getattr(r, "signal", "caution"),
+            "is_priority": getattr(r, "is_priority", False),
             "detected_at": r.detected_at.isoformat(),
         }
         for r in rows

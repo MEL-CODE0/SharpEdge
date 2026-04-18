@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..database import get_db
 from ..models import User
 from ..security import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class RegisterIn(BaseModel):
@@ -22,8 +25,8 @@ class LoginIn(BaseModel):
 
 
 @router.post("/register", status_code=201)
-async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
-    # Check duplicates
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterIn, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         select(User).where(
             (User.username == body.username) | (User.email == body.email)
@@ -49,7 +52,8 @@ async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login")
-async def login(body: LoginIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginIn, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == body.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
@@ -63,6 +67,5 @@ async def login(body: LoginIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me")
-async def me(db: AsyncSession = Depends(get_db)):
-    # Lightweight endpoint — token validation is done by the frontend
+async def me():
     return {"ok": True}

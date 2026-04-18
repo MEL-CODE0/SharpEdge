@@ -15,6 +15,7 @@ from .processor import find_arbitrage, find_value_bets
 log = logging.getLogger("sharpedge.scheduler")
 
 _running = False
+_paused = False
 _last_run: dict = {
     "ran_at": None,
     "sports_scanned": 0,
@@ -25,11 +26,28 @@ _last_run: dict = {
     "requests_remaining": 0,
     "error": None,
     "status": "idle",
+    "paused": False,
 }
 
 
 def get_status() -> dict:
     return dict(_last_run)
+
+
+def pause_loop():
+    global _paused
+    _paused = True
+    _last_run["paused"] = True
+    _last_run["status"] = "paused"
+    log.info("Scanner paused")
+
+
+def resume_loop():
+    global _paused
+    _paused = False
+    _last_run["paused"] = False
+    _last_run["status"] = "running"
+    log.info("Scanner resumed")
 
 
 async def run_once():
@@ -67,10 +85,8 @@ async def run_once():
             log.warning(f"[{sport}] fetch failed: {e}")
             error_msg = str(e)
 
-    # Persist to DB
     async with AsyncSessionLocal() as db:
         try:
-            # Deactivate stale records
             from sqlalchemy import update
             await db.execute(
                 update(ArbitrageOpportunity).where(ArbitrageOpportunity.is_active == True)
@@ -80,16 +96,10 @@ async def run_once():
                 update(ValueBet).where(ValueBet.is_active == True)
                 .values(is_active=False)
             )
-
-            # Insert new arbs
             for arb in all_arbs:
                 db.add(ArbitrageOpportunity(**arb))
-
-            # Insert new value bets
             for vb in all_vbs:
                 db.add(ValueBet(**vb))
-
-            # Log this run
             run_log = ScannerRun(
                 sports_scanned=len(sports),
                 events_scanned=total_events,
@@ -115,12 +125,10 @@ async def run_once():
         "requests_used": total_requests_used,
         "requests_remaining": total_requests_remaining,
         "error": error_msg,
-        "status": "error" if error_msg else "running",
+        "status": "paused" if _paused else ("error" if error_msg else "running"),
+        "paused": _paused,
     })
-    log.info(
-        f"Scan complete: {len(all_arbs)} arbs, {len(all_vbs)} value bets | "
-        f"API quota remaining: {total_requests_remaining}"
-    )
+    log.info(f"Scan complete: {len(all_arbs)} arbs, {len(all_vbs)} value bets | quota remaining: {total_requests_remaining}")
 
 
 async def polling_loop():
@@ -129,17 +137,17 @@ async def polling_loop():
     _last_run["status"] = "starting"
     log.info(f"Polling loop started (interval={settings.poll_interval_seconds}s)")
     while _running:
-        try:
-            await run_once()
-        except Exception as e:
-            log.error(f"Polling loop error: {e}")
-            _last_run["error"] = str(e)
-            _last_run["status"] = "error"
+        if not _paused:
+            try:
+                await run_once()
+            except Exception as e:
+                log.error(f"Polling loop error: {e}")
+                _last_run["error"] = str(e)
+                _last_run["status"] = "error"
         await asyncio.sleep(settings.poll_interval_seconds)
 
 
 def start_background_loop():
-    """Called from FastAPI lifespan — fires the polling loop as a background task."""
     asyncio.create_task(polling_loop())
 
 

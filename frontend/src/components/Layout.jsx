@@ -6,6 +6,7 @@ const navItems = [
   { to: '/arbitrage', label: 'Arbitrage', icon: '⚡' },
   { to: '/value-bets', label: 'Value Bets', icon: '💎' },
   { to: '/scanner', label: 'Scanner', icon: '🔍' },
+  { to: '/settings', label: 'Settings', icon: '⚙️' },
 ]
 
 export default function Layout() {
@@ -19,7 +20,6 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-60 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
           <span className="text-xl font-bold text-green-400">⚔ SharpEdge</span>
@@ -61,7 +61,6 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto bg-gray-950">
         <Outlet />
       </main>

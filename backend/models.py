@@ -27,6 +27,8 @@ class ArbitrageOpportunity(Base):
     profit_pct: Mapped[float] = mapped_column(Float)
     # legs: list of {bookmaker, outcome, odds, stake_pct}
     legs: Mapped[dict] = mapped_column(JSON)
+    signal: Mapped[str] = mapped_column(String(10), default="caution")
+    is_priority: Mapped[bool] = mapped_column(Boolean, default=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -47,6 +49,8 @@ class ValueBet(Base):
     ev_pct: Mapped[float] = mapped_column(Float)
     kelly_fraction: Mapped[float] = mapped_column(Float)
     sharp_books_agree: Mapped[int] = mapped_column(Integer, default=0)
+    signal: Mapped[str] = mapped_column(String(10), default="caution")
+    is_priority: Mapped[bool] = mapped_column(Boolean, default=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

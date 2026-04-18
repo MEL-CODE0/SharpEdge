@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Arbitrage from './pages/Arbitrage'
 import ValueBets from './pages/ValueBets'
 import Scanner from './pages/Scanner'
+import Settings from './pages/Settings'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="arbitrage" element={<Arbitrage />} />
         <Route path="value-bets" element={<ValueBets />} />
         <Route path="scanner" element={<Scanner />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   )
