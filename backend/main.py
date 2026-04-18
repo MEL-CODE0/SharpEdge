@@ -40,7 +40,17 @@ app.include_router(scanner.router)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    from .database import engine
+    from sqlalchemy import text
+    db_ok = False
+    db_error = None
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as e:
+        db_error = str(e)
+    return {"status": "ok", "db": "connected" if db_ok else "error", "db_error": db_error}
 
 
 # Serve React frontend in production
