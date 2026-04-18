@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sharpedge
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ODDS_API_KEY
+        sync: false
