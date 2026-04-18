@@ -1,31 +1,40 @@
 import re
-import ssl
+import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from .config import settings
 
+log = logging.getLogger("sharpedge.db")
+
 
 def _build_engine():
     url = settings.database_url
+    log.info(f"Original DATABASE_URL scheme: {url.split('://')[0]}")
 
-    # asyncpg does NOT accept sslmode/ssl/channel_binding as URL query params.
-    # Strip them all out and pass SSL via connect_args instead.
+    # Strip SSL/channel_binding params — asyncpg does NOT accept them in the URL
     url = re.sub(r'[?&]sslmode=[^&]*', '', url)
     url = re.sub(r'[?&]ssl=[^&]*', '', url)
     url = re.sub(r'[?&]channel_binding=[^&]*', '', url)
-    url = re.sub(r'[?&]$', '', url)  # clean trailing ? or &
+    url = re.sub(r'[?&]$', '', url)   # clean trailing ? or &
 
-    # Ensure asyncpg dialect prefix
-    if url.startswith('postgresql://'):
-        url = url.replace('postgresql://', 'postgresql+asyncpg://', 1)
-    elif url.startswith('postgres://'):
+    # Ensure asyncpg dialect
+    if url.startswith('postgres://'):
         url = url.replace('postgres://', 'postgresql+asyncpg://', 1)
+    elif url.startswith('postgresql://') and '+asyncpg' not in url:
+        url = url.replace('postgresql://', 'postgresql+asyncpg://', 1)
 
-    ssl_ctx = ssl.create_default_context()
+    log.info("Engine URL built (credentials hidden)")
+
     return create_async_engine(
         url,
-        connect_args={"ssl": ssl_ctx},
+        connect_args={
+            # ssl=True → encrypted but no certificate verification (works with Neon)
+            "ssl": True,
+            # Disable prepared statement cache for PgBouncer (Neon pooler) compatibility
+            "statement_cache_size": 0,
+        },
         echo=False,
+        pool_pre_ping=True,   # reconnect on stale connections
     )
 
 
@@ -43,6 +52,12 @@ async def get_db():
 
 
 async def init_db():
-    async with engine.begin() as conn:
-        from . import models  # noqa
-        await conn.run_sync(Base.metadata.create_all)
+    log.info("Running init_db — creating tables if needed…")
+    try:
+        async with engine.begin() as conn:
+            from . import models  # noqa
+            await conn.run_sync(Base.metadata.create_all)
+        log.info("init_db complete — all tables ready")
+    except Exception as e:
+        log.error(f"init_db FAILED: {e}")
+        raise
