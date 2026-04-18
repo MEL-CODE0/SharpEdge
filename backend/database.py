@@ -58,6 +58,8 @@ async def init_db():
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS signal VARCHAR(10) DEFAULT 'caution'",
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE",
+                # Existing users are treated as already verified so they don't get locked out
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE",
             ]
             from sqlalchemy import text
             for sql in migrations:

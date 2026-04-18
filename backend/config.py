@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # Low quota warning threshold
     quota_warning_threshold: int = 100
 
+    # Email / SMTP (Gmail app password recommended)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    from_email: str = ""
+
     class Config:
         env_file = ".env"
 

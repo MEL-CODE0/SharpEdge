@@ -13,6 +13,19 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class OTPToken(Base):
+    __tablename__ = "otp_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(10), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(30), nullable=False)  # verify_email | reset_password
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class ArbitrageOpportunity(Base):

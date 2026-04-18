@@ -9,6 +9,7 @@ import ValueBets from './pages/ValueBets'
 import Scanner from './pages/Scanner'
 import Settings from './pages/Settings'
 import Calculator from './pages/Calculator'
+import ForgotPassword from './pages/ForgotPassword'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -20,6 +21,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route
         path="/"
         element={
