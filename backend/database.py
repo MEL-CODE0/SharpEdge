@@ -44,13 +44,23 @@ async def get_db():
 
 
 async def init_db():
-    log.info("init_db: creating tables…")
-    # Never raise — let the app start even if DB is temporarily unreachable.
-    # Tables will be created on first successful connection.
+    log.info("init_db: creating tables and applying migrations…")
     try:
         async with engine.begin() as conn:
             from . import models  # noqa
             await conn.run_sync(Base.metadata.create_all)
+
+            # Safe column migrations — ADD COLUMN IF NOT EXISTS
+            migrations = [
+                "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS signal VARCHAR(10) DEFAULT 'caution'",
+                "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS signal VARCHAR(10) DEFAULT 'caution'",
+                "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE",
+            ]
+            from sqlalchemy import text
+            for sql in migrations:
+                await conn.execute(text(sql))
+
         log.info("init_db: done")
     except Exception as e:
         log.error(f"init_db failed (app will still start): {e}")
