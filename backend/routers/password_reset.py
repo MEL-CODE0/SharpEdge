@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,87 +6,49 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from ..database import get_db
-from ..models import User, OTPToken
-from ..security import hash_password
-from ..email_service import generate_otp, send_otp_email
+from ..models import User
+from ..security import hash_password, verify_answer
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
-OTP_EXPIRY_MINUTES = 10
 
-
-class ForgotPasswordIn(BaseModel):
+class GetQuestionIn(BaseModel):
     email: EmailStr
 
 
 class ResetPasswordIn(BaseModel):
     email: EmailStr
-    code: str
+    answer: str = Field(min_length=1, max_length=100)
     new_password: str = Field(min_length=6, max_length=72)
 
 
-# ── Forgot password — sends OTP to email ─────────────────────
-@router.post("/forgot-password")
-@limiter.limit("5/minute")
-async def forgot_password(request: Request, body: ForgotPasswordIn, db: AsyncSession = Depends(get_db)):
+# ── Get the security question for an email ───────────────────
+@router.post("/forgot-password/question")
+@limiter.limit("10/minute")
+async def get_security_question(request: Request, body: GetQuestionIn, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    # Always return success to avoid email enumeration
-    if not user:
-        return {"message": "If that email exists, a reset code has been sent."}
+    # Return generic message if no account found (prevents email enumeration)
+    if not user or not user.security_question:
+        raise HTTPException(status_code=404, detail="No account found with that email")
 
-    # Invalidate old reset OTPs for this email
-    old_otps = await db.execute(
-        select(OTPToken).where(
-            OTPToken.email == body.email,
-            OTPToken.purpose == "reset_password",
-            OTPToken.used == False,
-        )
-    )
-    for otp in old_otps.scalars().all():
-        otp.used = True
-
-    otp_code = generate_otp()
-    otp_token = OTPToken(
-        email=body.email,
-        code=otp_code,
-        purpose="reset_password",
-        expires_at=datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES),
-    )
-    db.add(otp_token)
-    await db.commit()
-
-    await send_otp_email(body.email, otp_code, "reset_password")
-    return {"message": "If that email exists, a reset code has been sent."}
+    return {"question": user.security_question}
 
 
-# ── Reset password — verify OTP + set new password ───────────
+# ── Verify answer + reset password ───────────────────────────
 @router.post("/reset-password")
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 async def reset_password(request: Request, body: ResetPasswordIn, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(OTPToken).where(
-            OTPToken.email == body.email,
-            OTPToken.code == body.code,
-            OTPToken.purpose == "reset_password",
-            OTPToken.used == False,
-        )
-    )
-    otp = result.scalar_one_or_none()
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
 
-    if not otp:
-        raise HTTPException(status_code=400, detail="Invalid or expired code")
-    if datetime.utcnow() > otp.expires_at:
-        raise HTTPException(status_code=400, detail="Code has expired — request a new one")
-
-    otp.used = True
-
-    user_result = await db.execute(select(User).where(User.email == body.email))
-    user = user_result.scalar_one_or_none()
-    if not user:
+    if not user or not user.security_answer_hash:
         raise HTTPException(status_code=404, detail="Account not found")
+
+    if not verify_answer(body.answer, user.security_answer_hash):
+        raise HTTPException(status_code=400, detail="Incorrect answer")
 
     user.hashed_password = hash_password(body.new_password)
     await db.commit()

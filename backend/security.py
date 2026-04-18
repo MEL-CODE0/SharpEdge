@@ -25,6 +25,17 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain[:72].encode("utf-8"), hashed.encode("utf-8"))
 
 
+def hash_answer(answer: str) -> str:
+    """Hash a security answer (case-insensitive, trimmed)."""
+    normalized = answer.strip().lower()[:72].encode("utf-8")
+    return bcrypt.hashpw(normalized, bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_answer(plain: str, hashed: str) -> bool:
+    normalized = plain.strip().lower()[:72].encode("utf-8")
+    return bcrypt.checkpw(normalized, hashed.encode("utf-8"))
+
+
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

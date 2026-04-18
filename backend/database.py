@@ -60,6 +60,8 @@ async def init_db():
                 "ALTER TABLE value_bets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE",
                 # Existing users are treated as already verified so they don't get locked out
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(200)",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(200)",
             ]
             from sqlalchemy import text
             for sql in migrations:

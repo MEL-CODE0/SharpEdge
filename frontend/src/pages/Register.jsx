@@ -3,8 +3,22 @@ import { Link, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { useAuthStore } from '../store'
 
+const QUESTIONS = [
+  "What was the name of your first pet?",
+  "What city were you born in?",
+  "What is your mother's maiden name?",
+  "What was the name of your primary school?",
+  "What was your childhood nickname?",
+  "What is the name of your favorite childhood friend?",
+  "What street did you grow up on?",
+  "What was the make of your first car?",
+]
+
 export default function Register() {
-  const [form, setForm] = useState({ username: '', email: '', password: '' })
+  const [form, setForm] = useState({
+    username: '', email: '', password: '',
+    security_question: QUESTIONS[0], security_answer: '',
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { setAuth } = useAuthStore()
@@ -59,6 +73,30 @@ export default function Register() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors"
                 required minLength={6} />
             </div>
+
+            {/* Security question */}
+            <div className="pt-1 border-t border-gray-800">
+              <p className="text-xs text-gray-500 mb-3 mt-2">🔐 Secret recovery question — used if you forget your password</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Secret question</label>
+                  <select value={form.security_question}
+                    onChange={e => setForm({ ...form, security_question: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors">
+                    {QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Your answer</label>
+                  <input type="text" value={form.security_answer}
+                    onChange={e => setForm({ ...form, security_answer: e.target.value })}
+                    placeholder="Keep it memorable"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors"
+                    required />
+                </div>
+              </div>
+            </div>
+
             <button type="submit" disabled={loading}
               className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition-colors mt-2">
               {loading ? 'Creating account…' : 'Create account'}

@@ -1,31 +1,32 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import api from '../api'
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState('email')   // 'email' | 'reset' | 'done'
+  const [step, setStep] = useState('email')   // 'email' | 'answer' | 'done'
   const [email, setEmail] = useState('')
-  const [form, setForm] = useState({ code: '', new_password: '', confirm: '' })
+  const [question, setQuestion] = useState('')
+  const [form, setForm] = useState({ answer: '', new_password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
-  // Step 1 — send OTP
-  const handleSend = async (e) => {
+  // Step 1 — look up the security question for this email
+  const handleLookup = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await api.post('/auth/forgot-password', { email })
-      setStep('reset')
+      const { data } = await api.post('/auth/forgot-password/question', { email })
+      setQuestion(data.question)
+      setStep('answer')
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Something went wrong')
+      setError(err.response?.data?.detail ?? 'No account found with that email')
     } finally {
       setLoading(false)
     }
   }
 
-  // Step 2 — verify OTP + set new password
+  // Step 2 — verify answer + set new password
   const handleReset = async (e) => {
     e.preventDefault()
     setError('')
@@ -37,7 +38,7 @@ export default function ForgotPassword() {
     try {
       await api.post('/auth/reset-password', {
         email,
-        code: form.code,
+        answer: form.answer,
         new_password: form.new_password,
       })
       setStep('done')
@@ -57,14 +58,15 @@ export default function ForgotPassword() {
         </div>
 
         <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-xl">
+
           {step === 'email' && (
             <>
               <h2 className="text-lg font-semibold mb-2">Forgot password</h2>
-              <p className="text-gray-500 text-sm mb-6">Enter your email and we'll send you a reset code.</p>
+              <p className="text-gray-500 text-sm mb-6">Enter your email and we'll ask you your secret question.</p>
               {error && (
                 <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
               )}
-              <form onSubmit={handleSend} className="space-y-4">
+              <form onSubmit={handleLookup} className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1.5">Email address</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -74,7 +76,7 @@ export default function ForgotPassword() {
                 </div>
                 <button type="submit" disabled={loading}
                   className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition-colors">
-                  {loading ? 'Sending…' : 'Send reset code'}
+                  {loading ? 'Looking up…' : 'Continue'}
                 </button>
               </form>
               <p className="text-center text-sm text-gray-500 mt-6">
@@ -83,26 +85,26 @@ export default function ForgotPassword() {
             </>
           )}
 
-          {step === 'reset' && (
+          {step === 'answer' && (
             <>
-              <div className="text-center mb-6">
-                <div className="text-4xl mb-3">🔑</div>
-                <h2 className="text-lg font-semibold">Enter reset code</h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Code sent to <span className="text-white font-medium">{email}</span>
-                </p>
-              </div>
+              <h2 className="text-lg font-semibold mb-2">Secret question</h2>
+              <p className="text-gray-500 text-sm mb-5">Answer your secret question to reset your password.</p>
               {error && (
                 <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
               )}
+
+              {/* Show the question */}
+              <div className="bg-gray-800 rounded-lg px-4 py-3 mb-5 text-sm text-gray-300">
+                🔐 {question}
+              </div>
+
               <form onSubmit={handleReset} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1.5">6-digit code</label>
-                  <input type="text" value={form.code}
-                    onChange={e => setForm({ ...form, code: e.target.value })}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-center tracking-[0.5em] text-xl font-mono focus:outline-none focus:border-green-500 transition-colors"
+                  <label className="block text-sm text-gray-400 mb-1.5">Your answer</label>
+                  <input type="text" value={form.answer}
+                    onChange={e => setForm({ ...form, answer: e.target.value })}
+                    placeholder="Enter your answer"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors"
                     required />
                 </div>
                 <div>
@@ -125,11 +127,9 @@ export default function ForgotPassword() {
                 </button>
               </form>
               <p className="text-center text-sm text-gray-500 mt-4">
-                Didn't get the code?{' '}
+                Wrong email?{' '}
                 <button onClick={() => { setStep('email'); setError('') }}
-                  className="text-green-400 hover:text-green-300">
-                  Resend
-                </button>
+                  className="text-green-400 hover:text-green-300">Go back</button>
               </p>
             </>
           )}
@@ -145,6 +145,7 @@ export default function ForgotPassword() {
               </Link>
             </div>
           )}
+
         </div>
       </div>
     </div>

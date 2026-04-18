@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 
 from ..database import get_db
 from ..models import User
-from ..security import hash_password, verify_password, create_access_token
+from ..security import hash_password, verify_password, create_access_token, hash_answer
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
@@ -17,6 +17,8 @@ class RegisterIn(BaseModel):
     username: str = Field(min_length=2, max_length=50)
     email: EmailStr
     password: str = Field(min_length=6, max_length=72)
+    security_question: str = Field(min_length=5, max_length=200)
+    security_answer: str = Field(min_length=1, max_length=100)
 
 
 class LoginIn(BaseModel):
@@ -40,6 +42,8 @@ async def register(request: Request, body: RegisterIn, db: AsyncSession = Depend
         email=body.email,
         hashed_password=hash_password(body.password),
         is_verified=True,
+        security_question=body.security_question,
+        security_answer_hash=hash_answer(body.security_answer),
     )
     db.add(user)
     await db.commit()
