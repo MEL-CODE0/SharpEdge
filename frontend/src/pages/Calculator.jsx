@@ -1,5 +1,251 @@
 import { useState } from 'react'
 
+// ── Shared signal helper ──────────────────────────────────────
+function getSignal(profit_pct) {
+  if (profit_pct >= 2.0) return { key: 'bet',     emoji: '🟢', label: 'BET — Strong arb, place both sides now',  color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30' }
+  if (profit_pct >= 1.0) return { key: 'caution', emoji: '🟡', label: 'CAUTION — Arb exists, act quickly',        color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' }
+  if (profit_pct >= 0.5) return { key: 'caution', emoji: '🟡', label: 'CAUTION — Thin margin, only if fast',      color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' }
+  return   { key: 'skip',    emoji: '🔴', label: 'SKIP — Margin too small after fees/tax',  color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30' }
+}
+
+// ── Over/Under Arb Calculator ─────────────────────────────────
+function OUCalc() {
+  const [form, setForm] = useState({
+    line:         '',   // e.g. 2.5
+    overOdds:     '',
+    overBook:     '',
+    underOdds:    '',
+    underBook:    '',
+    bankroll:     '',
+  })
+  const [result, setResult] = useState(null)
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const calculate = () => {
+    const over  = parseFloat(form.overOdds)
+    const under = parseFloat(form.underOdds)
+    const bank  = parseFloat(form.bankroll)
+    const line  = parseFloat(form.line)
+
+    if (!over || !under || over <= 1 || under <= 1) {
+      setResult({ error: 'Enter valid decimal odds for both Over and Under (must be > 1.0)' })
+      return
+    }
+    if (!bank || bank <= 0) {
+      setResult({ error: 'Enter the total amount you want to invest' })
+      return
+    }
+
+    const implied     = 1 / over + 1 / under
+    const overround   = ((implied - 1) * 100).toFixed(2)   // bookmaker's edge when > 0
+    const profit_pct  = (1 / implied - 1) * 100
+
+    if (implied >= 1) {
+      // No arb — show the overround so user understands the margin against them
+      setResult({
+        noArb: true,
+        implied,
+        overround,
+        over, under, bank, line,
+        overBook:  form.overBook,
+        underBook: form.underBook,
+      })
+      return
+    }
+
+    // Arb exists
+    const stakeOver  = bank * (1 / over)  / implied
+    const stakeUnder = bank * (1 / under) / implied
+    const payout     = bank / implied         // guaranteed return (same whichever wins)
+    const profit     = payout - bank
+    const signal     = getSignal(profit_pct)
+
+    setResult({
+      arb: true,
+      profit_pct, implied, payout, profit,
+      over, under, bank, line,
+      stakeOver, stakeUnder,
+      overBook:  form.overBook,
+      underBook: form.underBook,
+      signal,
+    })
+  }
+
+  const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500"
+  const labelCls = "block text-sm text-gray-400 mb-1.5"
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+      <h2 className="text-lg font-semibold mb-1">⚖️ Over/Under Arb Calculator</h2>
+      <p className="text-gray-500 text-sm mb-5">
+        Enter the best Over odds from one bookmaker and the best Under odds from another.
+        The calculator tells you exactly how much to stake on each side and whether to bet.
+      </p>
+
+      {/* How it works */}
+      <div className="bg-gray-800/60 rounded-xl px-4 py-3 mb-5 text-xs text-gray-400 leading-relaxed">
+        <span className="text-orange-400 font-semibold">How it works: </span>
+        If <span className="font-mono text-white">(1÷Over odds) + (1÷Under odds) &lt; 1.0</span>, an arb exists.
+        You split your bankroll across both sides so you win the same amount regardless of the final score.
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Line */}
+        <div className="col-span-2">
+          <label className={labelCls}>Goals / Points Line (e.g. 2.5)</label>
+          <input type="number" step="0.5" value={form.line} onChange={e => set('line', e.target.value)}
+            placeholder="e.g. 2.5" className={inputCls} />
+        </div>
+
+        {/* Over side */}
+        <div className="col-span-2">
+          <p className="text-xs text-orange-300 font-semibold uppercase tracking-wider mb-2">Over side</p>
+        </div>
+        <div>
+          <label className={labelCls}>Over Odds</label>
+          <input type="number" step="0.01" value={form.overOdds} onChange={e => set('overOdds', e.target.value)}
+            placeholder="e.g. 2.10" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Bookmaker</label>
+          <input value={form.overBook} onChange={e => set('overBook', e.target.value)}
+            placeholder="e.g. Betway" className={inputCls} />
+        </div>
+
+        {/* Under side */}
+        <div className="col-span-2">
+          <p className="text-xs text-blue-300 font-semibold uppercase tracking-wider mb-2 mt-1">Under side</p>
+        </div>
+        <div>
+          <label className={labelCls}>Under Odds</label>
+          <input type="number" step="0.01" value={form.underOdds} onChange={e => set('underOdds', e.target.value)}
+            placeholder="e.g. 2.20" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Bookmaker</label>
+          <input value={form.underBook} onChange={e => set('underBook', e.target.value)}
+            placeholder="e.g. 1xBet" className={inputCls} />
+        </div>
+
+        {/* Bankroll */}
+        <div className="col-span-2">
+          <label className={labelCls}>Total Amount to Invest (GHS / any currency)</label>
+          <input type="number" value={form.bankroll} onChange={e => set('bankroll', e.target.value)}
+            placeholder="e.g. 500" className={inputCls} />
+        </div>
+      </div>
+
+      <button onClick={calculate}
+        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mb-4">
+        Calculate
+      </button>
+
+      {/* ── Results ── */}
+      {result && (
+        result.error ? (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">{result.error}</div>
+        ) : result.noArb ? (
+          <div className="p-5 bg-red-500/10 border border-red-500/30 rounded-xl space-y-3">
+            <p className="text-red-400 font-bold text-base">🔴 SKIP — No arbitrage here</p>
+            <p className="text-sm text-gray-400">
+              The implied total is <span className="font-mono text-white">{(result.implied * 100).toFixed(3)}%</span> — it needs to be
+              below <span className="font-mono text-white">100%</span> for an arb to exist.
+            </p>
+            <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm">
+              <p className="text-gray-500 text-xs mb-2">Breakdown</p>
+              <div className="flex justify-between mb-1">
+                <span className="text-orange-300">Over {result.line || ''} ({result.overBook || 'Book A'})</span>
+                <span className="font-mono">{result.over.toFixed(2)} → {(100 / result.over).toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-blue-300">Under {result.line || ''} ({result.underBook || 'Book B'})</span>
+                <span className="font-mono">{result.under.toFixed(2)} → {(100 / result.under).toFixed(2)}%</span>
+              </div>
+              <div className="border-t border-gray-700 pt-2 flex justify-between">
+                <span className="text-gray-400">Bookmaker overround</span>
+                <span className="text-red-400 font-semibold">+{result.overround}% against you</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Try finding better odds on another bookmaker. You need the implied sum to drop below 100%.
+            </p>
+          </div>
+        ) : (
+          <div className={`p-5 border rounded-xl space-y-4 ${result.signal.bg}`}>
+            {/* Signal banner */}
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{result.signal.emoji}</span>
+              <div>
+                <p className={`font-bold text-base ${result.signal.color}`}>{result.signal.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Implied sum: {(result.implied * 100).toFixed(3)}% · Profit locked regardless of outcome
+                </p>
+              </div>
+            </div>
+
+            {/* Profit summary */}
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Profit %</p>
+                <p className="text-green-400 font-bold font-mono text-lg">+{result.profit_pct.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Guaranteed return</p>
+                <p className="text-white font-bold font-mono text-lg">{result.payout.toFixed(2)}</p>
+              </div>
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Net profit</p>
+                <p className="text-green-400 font-bold font-mono text-lg">+{result.profit.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* Stake instructions */}
+            <div className="space-y-2 text-sm">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">What to stake</p>
+              <div className="flex items-center justify-between bg-gray-800/80 rounded-lg px-4 py-3 border border-orange-500/20">
+                <div>
+                  <p className="text-orange-300 font-semibold">
+                    Over {result.line || ''} @ {result.over.toFixed(2)}
+                  </p>
+                  {result.overBook && <p className="text-gray-500 text-xs capitalize mt-0.5">@ {result.overBook}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-bold font-mono text-lg">{result.stakeOver.toFixed(2)}</p>
+                  <p className="text-gray-500 text-xs">{((result.stakeOver / result.bank) * 100).toFixed(1)}% of bankroll</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-gray-800/80 rounded-lg px-4 py-3 border border-blue-500/20">
+                <div>
+                  <p className="text-blue-300 font-semibold">
+                    Under {result.line || ''} @ {result.under.toFixed(2)}
+                  </p>
+                  {result.underBook && <p className="text-gray-500 text-xs capitalize mt-0.5">@ {result.underBook}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-bold font-mono text-lg">{result.stakeUnder.toFixed(2)}</p>
+                  <p className="text-gray-500 text-xs">{((result.stakeUnder / result.bank) * 100).toFixed(1)}% of bankroll</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formula */}
+            <div className="bg-gray-900/60 rounded-lg px-4 py-3 font-mono text-xs text-gray-400">
+              <p className="mb-1">(1÷{result.over.toFixed(2)}) + (1÷{result.under.toFixed(2)}) = <span className="text-green-400">{(result.implied).toFixed(4)}</span> &lt; 1.0 ✓</p>
+              <p>Stake Over = {result.bank} × {(1/result.over/result.implied).toFixed(4)} = <span className="text-orange-300">{result.stakeOver.toFixed(2)}</span></p>
+              <p>Stake Under = {result.bank} × {(1/result.under/result.implied).toFixed(4)} = <span className="text-blue-300">{result.stakeUnder.toFixed(2)}</span></p>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Place both bets as fast as possible — odds can shift. Always verify the odds are still live before placing.
+            </p>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 // ── Arbitrage Calculator ──────────────────────────────────────
 function ArbCalc() {
   const [bankroll, setBankroll] = useState('')
@@ -35,7 +281,8 @@ function ArbCalc() {
       stake: (bank * (1 / l.oddsNum) / implied),
       payout: bank / implied,
     }))
-    setResult({ profit_pct, implied, stakeLegs, payout: bank / implied })
+    const signal = getSignal(profit_pct)
+    setResult({ profit_pct, implied, stakeLegs, payout: bank / implied, signal })
   }
 
   return (
@@ -85,10 +332,13 @@ function ArbCalc() {
         result.error ? (
           <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">{result.error}</div>
         ) : (
-          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-green-400 font-bold text-lg">+{result.profit_pct.toFixed(2)}% guaranteed profit</span>
-              <span className="text-gray-400 text-sm">Implied: {(result.implied * 100).toFixed(2)}%</span>
+          <div className={`p-4 border rounded-xl space-y-4 ${result.signal.bg}`}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{result.signal.emoji}</span>
+              <div>
+                <p className={`font-bold ${result.signal.color}`}>{result.signal.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">+{result.profit_pct.toFixed(2)}% profit · Implied: {(result.implied * 100).toFixed(2)}%</p>
+              </div>
             </div>
             <div className="space-y-2">
               {result.stakeLegs.map((l, i) => (
@@ -105,7 +355,7 @@ function ArbCalc() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-sm border-t border-green-500/20 pt-3">
+            <div className="flex justify-between text-sm border-t border-gray-700 pt-3">
               <span className="text-gray-400">Guaranteed payout (any outcome)</span>
               <span className="font-bold text-green-400">{result.payout.toFixed(2)}</span>
             </div>
@@ -330,7 +580,6 @@ function OddsConverter() {
   const toFractional = (d) => {
     if (!d || d <= 1) return '—'
     const n = d - 1
-    // Find GCD for simplification
     const gcd = (a, b) => b < 0.001 ? a : gcd(b, a % b)
     const mult = 100
     const num = Math.round(n * mult)
@@ -397,11 +646,12 @@ function OddsConverter() {
 
 // ── Main page ─────────────────────────────────────────────────
 export default function Calculator() {
-  const [tab, setTab] = useState('arb')
+  const [tab, setTab] = useState('ou')
   const tabs = [
-    { key: 'arb', label: '⚡ Arbitrage' },
-    { key: 'kelly', label: '💰 Kelly Stake' },
-    { key: 'ev', label: '📊 Value / EV' },
+    { key: 'ou',      label: '⚖️ O/U Arb' },
+    { key: 'arb',     label: '⚡ Match Arb' },
+    { key: 'kelly',   label: '💰 Kelly Stake' },
+    { key: 'ev',      label: '📊 Value / EV' },
     { key: 'convert', label: '💱 Convert' },
   ]
 
@@ -416,16 +666,19 @@ export default function Calculator() {
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-green-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+              tab === t.key
+                ? t.key === 'ou' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'arb' && <ArbCalc />}
-      {tab === 'kelly' && <KellyCalc />}
-      {tab === 'ev' && <EVCalc />}
+      {tab === 'ou'      && <OUCalc />}
+      {tab === 'arb'     && <ArbCalc />}
+      {tab === 'kelly'   && <KellyCalc />}
+      {tab === 'ev'      && <EVCalc />}
       {tab === 'convert' && <OddsConverter />}
     </div>
   )
