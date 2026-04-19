@@ -103,7 +103,7 @@ export default function Dashboard() {
                 { label: 'Arb Found', value: scanStatus?.arb_found ?? 0, color: 'text-green-400' },
                 { label: 'Value Found', value: scanStatus?.value_found ?? 0, color: 'text-blue-400' },
                 { label: 'Sports', value: scanStatus?.sports_scanned ?? 0 },
-                { label: 'Poll Interval', value: '8 hrs' },
+                { label: 'Poll Interval', value: '12 hrs' },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-gray-500">{r.label}</p>

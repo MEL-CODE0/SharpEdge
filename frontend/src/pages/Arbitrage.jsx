@@ -13,8 +13,22 @@ function SignalBadge({ signal }) {
   return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.color}`}>{s.emoji} {s.label}</span>
 }
 
+function OUFormula({ legs }) {
+  if (!legs || legs.length < 2) return null
+  const over = legs.find(l => l.outcome?.toLowerCase().startsWith('over'))
+  const under = legs.find(l => l.outcome?.toLowerCase().startsWith('under'))
+  if (!over || !under) return null
+  const implied = (1 / over.odds + 1 / under.odds).toFixed(4)
+  return (
+    <p className="text-xs text-orange-400/80 mt-2 font-mono">
+      (1÷{over.odds.toFixed(2)}) + (1÷{under.odds.toFixed(2)}) = {implied} &lt; 1.0 ✓
+    </p>
+  )
+}
+
 function ArbCard({ item }) {
   const isPriority = item.is_priority
+  const isOU = item.market === 'totals'
   return (
     <div className={`bg-gray-900 border rounded-2xl p-5 transition-colors ${
       isPriority ? 'border-green-500/40 hover:border-green-500/60' : 'border-gray-800 hover:border-gray-700'
@@ -25,6 +39,11 @@ function ArbCard({ item }) {
             <p className="font-semibold truncate">{item.match_name}</p>
             {isPriority && (
               <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full shrink-0">⭐ Betway/1xBet</span>
+            )}
+            {isOU && (
+              <span className="text-xs bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full shrink-0">
+                ⚖️ O/U {item.ou_line ?? ''}
+              </span>
             )}
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -58,6 +77,8 @@ function ArbCard({ item }) {
           </div>
         ))}
       </div>
+
+      {isOU && <OUFormula legs={item.legs} />}
     </div>
   )
 }
@@ -68,15 +89,17 @@ const SPORT_GROUPS = {
   '🎾 Tennis': 'tennis',
 }
 
+const MARKET_TABS = ['All', '🏆 Match Result', '⚖️ Over/Under']
+
 export default function Arbitrage() {
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [sport, setSport] = useState('')
-  const [sports, setSports] = useState([])
   const [priorityOnly, setPriorityOnly] = useState(false)
   const [activeGroup, setActiveGroup] = useState('All')
+  const [activeMarket, setActiveMarket] = useState('All')
   const PAGE_SIZE = 20
 
   const load = useCallback(async () => {
@@ -93,10 +116,6 @@ export default function Arbitrage() {
   }, [page, sport, priorityOnly])
 
   useEffect(() => {
-    api.get('/opportunities/sports').then(({ data }) => setSports(Array.isArray(data) ? data : []))
-  }, [])
-
-  useEffect(() => {
     load()
     const t = setInterval(load, 30_000)
     return () => clearInterval(t)
@@ -108,10 +127,22 @@ export default function Arbitrage() {
     setPage(1)
   }
 
-  // Filter items by sport group in UI
-  const displayed = activeGroup === 'All'
+  const handleMarketClick = (tab) => {
+    setActiveMarket(tab)
+    setPage(1)
+  }
+
+  // Filter by sport group
+  let displayed = activeGroup === 'All'
     ? items
     : items.filter(i => i.sport_key?.startsWith(SPORT_GROUPS[activeGroup] ?? ''))
+
+  // Filter by market type
+  if (activeMarket === '🏆 Match Result') {
+    displayed = displayed.filter(i => i.market === 'h2h' || !i.market)
+  } else if (activeMarket === '⚖️ Over/Under') {
+    displayed = displayed.filter(i => i.market === 'totals')
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -128,6 +159,20 @@ export default function Arbitrage() {
           }`}>
           ⭐ Betway/1xBet only
         </button>
+      </div>
+
+      {/* Market type tabs */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {MARKET_TABS.map(tab => (
+          <button key={tab} onClick={() => handleMarketClick(tab)}
+            className={`text-sm px-4 py-1.5 rounded-full font-medium transition-colors ${
+              activeMarket === tab
+                ? tab === '⚖️ Over/Under' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}>
+            {tab}
+          </button>
+        ))}
       </div>
 
       {/* Sport category tabs */}
@@ -154,9 +199,9 @@ export default function Arbitrage() {
         <div className="flex items-center justify-center h-40 text-gray-600">Loading…</div>
       ) : displayed.length === 0 ? (
         <div className="text-center py-20 text-gray-600">
-          <p className="text-4xl mb-3">⚡</p>
-          <p className="font-medium">No arbitrage opportunities right now</p>
-          <p className="text-sm mt-1">Scanner refreshes every 5 minutes</p>
+          <p className="text-4xl mb-3">{activeMarket === '⚖️ Over/Under' ? '⚖️' : '⚡'}</p>
+          <p className="font-medium">No {activeMarket === '⚖️ Over/Under' ? 'Over/Under' : 'arbitrage'} opportunities right now</p>
+          <p className="text-sm mt-1">Scanner refreshes every 12 hours</p>
         </div>
       ) : (
         <div className="space-y-4">{displayed.map(item => <ArbCard key={item.id} item={item} />)}</div>

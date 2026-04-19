@@ -10,7 +10,7 @@ from ..config import settings
 from ..database import AsyncSessionLocal
 from ..models import ArbitrageOpportunity, ValueBet, ScannerRun
 from .client import OddsAPIClient
-from .processor import find_arbitrage, find_value_bets
+from .processor import find_arbitrage, find_value_bets, find_ou_arbitrage
 
 log = logging.getLogger("sharpedge.scheduler")
 
@@ -63,7 +63,11 @@ async def run_once():
     total_requests_remaining = 0
     error_msg = None
 
+    # Sports that also get Over/Under totals market (EPL + UCL)
+    totals_sports = set(s.strip() for s in settings.totals_sports.split(",") if s.strip())
+
     for sport in sports:
+        # H2H scan for all sports
         try:
             events, quota = await client.get_odds(
                 sport=sport,
@@ -80,10 +84,30 @@ async def run_once():
             all_arbs.extend(arbs)
             all_vbs.extend(vbs)
 
-            log.info(f"[{sport}] {len(events)} events → {len(arbs)} arbs, {len(vbs)} value bets")
+            log.info(f"[{sport}] h2h: {len(events)} events → {len(arbs)} arbs, {len(vbs)} vbs")
         except Exception as e:
-            log.warning(f"[{sport}] fetch failed: {e}")
+            log.warning(f"[{sport}] h2h fetch failed: {e}")
             error_msg = str(e)
+
+        # Over/Under totals scan for EPL + UCL only
+        if sport in totals_sports:
+            try:
+                ou_events, ou_quota = await client.get_odds(
+                    sport=sport,
+                    regions="eu",
+                    markets="totals",
+                    bookmakers=bookmakers,
+                )
+                total_requests_used += ou_quota["requests_used"]
+                total_requests_remaining = ou_quota["requests_remaining"]
+
+                ou_arbs = find_ou_arbitrage(ou_events, min_profit_pct=settings.min_profit_pct)
+                all_arbs.extend(ou_arbs)
+
+                log.info(f"[{sport}] totals: {len(ou_events)} events → {len(ou_arbs)} O/U arbs")
+            except Exception as e:
+                log.warning(f"[{sport}] totals fetch failed: {e}")
+                error_msg = str(e)
 
     async with AsyncSessionLocal() as db:
         try:

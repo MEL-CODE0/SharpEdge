@@ -62,6 +62,7 @@ async def init_db():
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(200)",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(200)",
+                "ALTER TABLE arbitrage_opportunities ADD COLUMN IF NOT EXISTS ou_line FLOAT",
             ]
             from sqlalchemy import text
             for sql in migrations:

@@ -38,7 +38,8 @@ class ArbitrageOpportunity(Base):
     sport_title: Mapped[str] = mapped_column(String(120))
     match_name: Mapped[str] = mapped_column(String(200))
     commence_time: Mapped[datetime] = mapped_column(DateTime)
-    market: Mapped[str] = mapped_column(String(20), default="h2h")
+    market: Mapped[str] = mapped_column(String(20), default="h2h")  # h2h | totals
+    ou_line: Mapped[float | None] = mapped_column(Float, nullable=True)  # e.g. 2.5 for O/U 2.5
     profit_pct: Mapped[float] = mapped_column(Float)
     # legs: list of {bookmaker, outcome, odds, stake_pct}
     legs: Mapped[dict] = mapped_column(JSON)

@@ -196,6 +196,103 @@ def find_value_bets(events: list[dict], min_ev_pct: float = 2.0) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────
+#  OVER / UNDER ARBITRAGE
+# ─────────────────────────────────────────────────────────────
+
+def find_ou_arbitrage(events: list[dict], min_profit_pct: float = 0.5) -> list[dict]:
+    """
+    Detects Over/Under arbitrage opportunities from totals market data.
+    Formula: (1÷Over odds) + (1÷Under odds) < 1.0
+    """
+    opportunities = []
+
+    for event in events:
+        bookmakers = event.get("bookmakers", [])
+        if not bookmakers:
+            continue
+
+        # Collect best Over and Under price for each line (e.g. 2.5) across all bookmakers
+        lines: dict[float, dict] = {}
+
+        for bm in bookmakers:
+            for market in bm.get("markets", []):
+                if market["key"] != "totals":
+                    continue
+                for outcome in market.get("outcomes", []):
+                    line = float(outcome.get("point", 0))
+                    name = outcome["name"].lower()   # "over" or "under"
+                    price = float(outcome["price"])
+
+                    if line not in lines:
+                        lines[line] = {}
+                    if name not in lines[line] or price > lines[line][name]["odds"]:
+                        lines[line][name] = {"odds": price, "bookmaker": bm["key"]}
+
+        # Check each line for an arb
+        for line, sides in lines.items():
+            if "over" not in sides or "under" not in sides:
+                continue
+
+            over = sides["over"]
+            under = sides["under"]
+
+            # Skip if same bookmaker on both sides — not a real arb
+            if over["bookmaker"] == under["bookmaker"]:
+                continue
+
+            implied = (1.0 / over["odds"]) + (1.0 / under["odds"])
+            if implied >= 1.0:
+                continue
+
+            profit_pct = round((1.0 / implied - 1.0) * 100, 3)
+
+            # Lower threshold for priority book pairs
+            priority_legs = sum(
+                1 for s in [over, under] if s["bookmaker"] in PRIORITY_BOOKS
+            )
+            effective_min = min_profit_pct * 0.6 if priority_legs >= 2 else min_profit_pct
+            if profit_pct < effective_min:
+                continue
+
+            legs = [
+                {
+                    "outcome": f"Over {line}",
+                    "bookmaker": over["bookmaker"],
+                    "odds": over["odds"],
+                    "stake_pct": round((1.0 / over["odds"]) / implied * 100, 2),
+                },
+                {
+                    "outcome": f"Under {line}",
+                    "bookmaker": under["bookmaker"],
+                    "odds": under["odds"],
+                    "stake_pct": round((1.0 / under["odds"]) / implied * 100, 2),
+                },
+            ]
+
+            home, away = _split_teams(event)
+            commence_time = _parse_dt(event["commence_time"])
+            hours = _hours_to_start(commence_time)
+            is_priority = priority_legs >= 2
+
+            opportunities.append({
+                "sport_key": event["sport_key"],
+                "sport_title": event["sport_title"],
+                "match_name": f"{home} vs {away}",
+                "commence_time": commence_time,
+                "market": "totals",
+                "ou_line": line,
+                "profit_pct": profit_pct,
+                "legs": legs,
+                "signal": _arb_signal(profit_pct, hours, legs),
+                "is_priority": is_priority,
+                "is_live": _is_live(commence_time),
+            })
+
+    opportunities.sort(key=lambda x: (not x["is_priority"], -x["profit_pct"]))
+    return opportunities
+
+
+# ─────────────────────────────────────────────────────────────
 #  Helpers
 # ─────────────────────────────────────────────────────────────
 
