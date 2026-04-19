@@ -51,12 +51,7 @@ export default function Login() {
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm text-gray-400">Password</label>
-                <Link to="/forgot-password" className="text-xs text-green-400 hover:text-green-300">
-                  Forgot password?
-                </Link>
-              </div>
+              <label className="block text-sm text-gray-400 mb-1.5">Password</label>
               <input
                 type="password"
                 value={form.password}
@@ -64,6 +59,11 @@ export default function Login() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors"
                 required
               />
+              <div className="mt-2 text-right">
+                <Link to="/forgot-password" className="text-xs text-green-400 hover:text-green-300">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
             <button
               type="submit"

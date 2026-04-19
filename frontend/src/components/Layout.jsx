@@ -81,7 +81,7 @@ export default function Layout() {
 
             {/* Dropdown */}
             {bellOpen && (
-              <div className="absolute right-0 top-9 w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute left-0 top-9 w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
                   <span className="text-sm font-semibold">Notifications</span>
                   {notifications.length > 0 && (
