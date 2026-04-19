@@ -246,6 +246,256 @@ function OUCalc() {
   )
 }
 
+// ── Double Chance Arb Calculator ─────────────────────────────
+function DCCalc() {
+  const ARB_TYPES = [
+    {
+      key: 'home_x2',
+      label: 'Home (1)  vs  X2',
+      desc: 'Back Home at one book, Away or Draw at another',
+      sideA: { name: 'Home (1)',          color: 'text-green-300',  border: 'border-green-500/20',  bg: 'bg-green-950/40' },
+      sideB: { name: 'X2 (Away or Draw)', color: 'text-purple-300', border: 'border-purple-500/20', bg: 'bg-purple-950/40' },
+    },
+    {
+      key: 'away_1x',
+      label: 'Away (2)  vs  1X',
+      desc: 'Back Away at one book, Home or Draw at another',
+      sideA: { name: 'Away (2)',          color: 'text-blue-300',   border: 'border-blue-500/20',   bg: 'bg-blue-950/40' },
+      sideB: { name: '1X (Home or Draw)', color: 'text-orange-300', border: 'border-orange-500/20', bg: 'bg-orange-950/40' },
+    },
+  ]
+
+  const [arbType, setArbType] = useState('home_x2')
+  const [form, setForm] = useState({ oddsA: '', bookA: '', oddsB: '', bookB: '', bankroll: '' })
+  const [result, setResult] = useState(null)
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setResult(null) }
+  const current = ARB_TYPES.find(t => t.key === arbType)
+
+  const calculate = () => {
+    const oddsA  = parseFloat(form.oddsA)
+    const oddsB  = parseFloat(form.oddsB)
+    const bank   = parseFloat(form.bankroll)
+
+    if (!oddsA || !oddsB || oddsA <= 1 || oddsB <= 1)
+      return setResult({ error: 'Enter valid decimal odds for both sides (must be > 1.0)' })
+    if (!bank || bank <= 0)
+      return setResult({ error: 'Enter the total amount you want to invest' })
+
+    const implied   = 1 / oddsA + 1 / oddsB
+    const overround = ((implied - 1) * 100).toFixed(2)
+
+    if (implied >= 1) {
+      return setResult({
+        noArb: true, implied, overround,
+        oddsA, oddsB, bank,
+        sideA: current.sideA, sideB: current.sideB,
+        bookA: form.bookA, bookB: form.bookB,
+      })
+    }
+
+    const profit_pct = (1 / implied - 1) * 100
+    const stakeA     = bank * (1 / oddsA) / implied
+    const stakeB     = bank * (1 / oddsB) / implied
+    const payout     = bank / implied
+    const profit     = payout - bank
+    const signal     = getSignal(profit_pct)
+
+    setResult({
+      arb: true,
+      profit_pct, implied, payout, profit,
+      oddsA, oddsB, bank, stakeA, stakeB,
+      sideA: current.sideA, sideB: current.sideB,
+      bookA: form.bookA, bookB: form.bookB,
+      signal,
+    })
+  }
+
+  const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
+  const labelCls = "block text-sm text-gray-400 mb-1.5"
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+      <h2 className="text-lg font-semibold mb-1">🎯 Double Chance Arb Calculator</h2>
+      <p className="text-gray-500 text-sm mb-5">
+        Back a single outcome against a double chance market across two bookmakers — guaranteed profit if arb exists.
+      </p>
+
+      {/* How it works */}
+      <div className="bg-gray-800/60 rounded-xl px-4 py-3 mb-5 text-xs text-gray-400 leading-relaxed">
+        <span className="text-indigo-400 font-semibold">How it works: </span>
+        A double chance bet covers two of the three possible results. Paired with the third outcome at another book,
+        <span className="font-mono text-white"> every possible result is covered</span>. If{' '}
+        <span className="font-mono text-white">(1÷Odds A) + (1÷Odds B) &lt; 1.0</span>, profit is locked in.
+      </div>
+
+      {/* Arb type selector */}
+      <div className="mb-5">
+        <p className={labelCls}>Arb type</p>
+        <div className="grid grid-cols-2 gap-2">
+          {ARB_TYPES.map(t => (
+            <button key={t.key} onClick={() => { setArbType(t.key); setResult(null) }}
+              className={`text-sm px-4 py-3 rounded-xl font-medium transition-colors text-left border ${
+                arbType === t.key
+                  ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              }`}>
+              <p className="font-semibold">{t.label}</p>
+              <p className="text-xs opacity-70 mt-0.5">{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Side A */}
+        <div className="col-span-2">
+          <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${current.sideA.color}`}>
+            Side A — {current.sideA.name}
+          </p>
+        </div>
+        <div>
+          <label className={labelCls}>Odds</label>
+          <input type="number" step="0.01" value={form.oddsA} onChange={e => set('oddsA', e.target.value)}
+            placeholder="e.g. 2.20" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Bookmaker</label>
+          <input value={form.bookA} onChange={e => set('bookA', e.target.value)}
+            placeholder="e.g. Betway" className={inputCls} />
+        </div>
+
+        {/* Side B */}
+        <div className="col-span-2">
+          <p className={`text-xs font-semibold uppercase tracking-wider mb-2 mt-1 ${current.sideB.color}`}>
+            Side B — {current.sideB.name}
+          </p>
+        </div>
+        <div>
+          <label className={labelCls}>Odds</label>
+          <input type="number" step="0.01" value={form.oddsB} onChange={e => set('oddsB', e.target.value)}
+            placeholder="e.g. 2.10" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Bookmaker</label>
+          <input value={form.bookB} onChange={e => set('bookB', e.target.value)}
+            placeholder="e.g. 1xBet" className={inputCls} />
+        </div>
+
+        {/* Bankroll */}
+        <div className="col-span-2">
+          <label className={labelCls}>Total Amount to Invest (GHS / any currency)</label>
+          <input type="number" value={form.bankroll} onChange={e => set('bankroll', e.target.value)}
+            placeholder="e.g. 1000" className={inputCls} />
+        </div>
+      </div>
+
+      <button onClick={calculate}
+        className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mb-4">
+        Calculate
+      </button>
+
+      {/* ── Results ── */}
+      {result && (
+        result.error ? (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">{result.error}</div>
+
+        ) : result.noArb ? (
+          <div className="p-5 bg-red-500/10 border border-red-500/30 rounded-xl space-y-3">
+            <p className="text-red-400 font-bold text-base">🔴 SKIP — No arbitrage here</p>
+            <p className="text-sm text-gray-400">
+              Implied total is <span className="font-mono text-white">{(result.implied * 100).toFixed(3)}%</span> — needs to be under 100%.
+            </p>
+            <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className={result.sideA.color}>{result.sideA.name}{result.bookA ? ` (${result.bookA})` : ''}</span>
+                <span className="font-mono">{result.oddsA.toFixed(2)} → {(100/result.oddsA).toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={result.sideB.color}>{result.sideB.name}{result.bookB ? ` (${result.bookB})` : ''}</span>
+                <span className="font-mono">{result.oddsB.toFixed(2)} → {(100/result.oddsB).toFixed(2)}%</span>
+              </div>
+              <div className="border-t border-gray-700 pt-2 flex justify-between">
+                <span className="text-gray-400">Bookmaker overround</span>
+                <span className="text-red-400 font-semibold">+{result.overround}% against you</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Look for better {result.sideB.name} odds on another bookmaker to flip this into an arb.
+            </p>
+          </div>
+
+        ) : (
+          <div className={`p-5 border rounded-xl space-y-4 ${result.signal.bg}`}>
+            {/* Signal */}
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{result.signal.emoji}</span>
+              <div>
+                <p className={`font-bold text-base ${result.signal.color}`}>{result.signal.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Implied: {(result.implied * 100).toFixed(3)}% · Profit locked regardless of result
+                </p>
+              </div>
+            </div>
+
+            {/* Summary row */}
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Profit %</p>
+                <p className="text-green-400 font-bold font-mono text-lg">+{result.profit_pct.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Guaranteed return</p>
+                <p className="text-white font-bold font-mono text-lg">{result.payout.toFixed(2)}</p>
+              </div>
+              <div className="bg-gray-800/80 rounded-lg px-3 py-2.5 text-center">
+                <p className="text-gray-500 text-xs mb-1">Net profit</p>
+                <p className="text-green-400 font-bold font-mono text-lg">+{result.profit.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* Stake instructions */}
+            <div className="space-y-2 text-sm">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">What to stake</p>
+              <div className={`flex items-center justify-between rounded-lg px-4 py-3 border ${result.sideA.bg} ${result.sideA.border}`}>
+                <div>
+                  <p className={`font-semibold ${result.sideA.color}`}>{result.sideA.name} @ {result.oddsA.toFixed(2)}</p>
+                  {result.bookA && <p className="text-gray-500 text-xs capitalize mt-0.5">@ {result.bookA}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-bold font-mono text-lg">{result.stakeA.toFixed(2)}</p>
+                  <p className="text-gray-500 text-xs">{((result.stakeA / result.bank) * 100).toFixed(1)}% of bankroll</p>
+                </div>
+              </div>
+              <div className={`flex items-center justify-between rounded-lg px-4 py-3 border ${result.sideB.bg} ${result.sideB.border}`}>
+                <div>
+                  <p className={`font-semibold ${result.sideB.color}`}>{result.sideB.name} @ {result.oddsB.toFixed(2)}</p>
+                  {result.bookB && <p className="text-gray-500 text-xs capitalize mt-0.5">@ {result.bookB}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-bold font-mono text-lg">{result.stakeB.toFixed(2)}</p>
+                  <p className="text-gray-500 text-xs">{((result.stakeB / result.bank) * 100).toFixed(1)}% of bankroll</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formula */}
+            <div className="bg-gray-900/60 rounded-lg px-4 py-3 font-mono text-xs text-gray-400">
+              <p className="mb-1">(1÷{result.oddsA.toFixed(2)}) + (1÷{result.oddsB.toFixed(2)}) = <span className="text-green-400">{result.implied.toFixed(4)}</span> &lt; 1.0 ✓</p>
+              <p>Stake A = {result.bank} × {(1/result.oddsA/result.implied).toFixed(4)} = <span className={result.sideA.color}>{result.stakeA.toFixed(2)}</span></p>
+              <p>Stake B = {result.bank} × {(1/result.oddsB/result.implied).toFixed(4)} = <span className={result.sideB.color}>{result.stakeB.toFixed(2)}</span></p>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Place both bets immediately — double chance odds shift fast. Verify both are still live before placing.
+            </p>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 // ── Arbitrage Calculator ──────────────────────────────────────
 function ArbCalc() {
   const [bankroll, setBankroll] = useState('')
@@ -649,6 +899,7 @@ export default function Calculator() {
   const [tab, setTab] = useState('ou')
   const tabs = [
     { key: 'ou',      label: '⚖️ O/U Arb' },
+    { key: 'dc',      label: '🎯 Double Chance' },
     { key: 'arb',     label: '⚡ Match Arb' },
     { key: 'kelly',   label: '💰 Kelly Stake' },
     { key: 'ev',      label: '📊 Value / EV' },
@@ -667,7 +918,9 @@ export default function Calculator() {
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === t.key
-                ? t.key === 'ou' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+                ? t.key === 'ou' ? 'bg-orange-500 text-white'
+                  : t.key === 'dc' ? 'bg-indigo-500 text-white'
+                  : 'bg-green-500 text-white'
                 : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}>
             {t.label}
@@ -676,6 +929,7 @@ export default function Calculator() {
       </div>
 
       {tab === 'ou'      && <OUCalc />}
+      {tab === 'dc'      && <DCCalc />}
       {tab === 'arb'     && <ArbCalc />}
       {tab === 'kelly'   && <KellyCalc />}
       {tab === 'ev'      && <EVCalc />}
