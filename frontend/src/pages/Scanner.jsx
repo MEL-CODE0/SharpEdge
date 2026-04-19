@@ -62,13 +62,26 @@ export default function Scanner() {
   }
 
   const trigger = async () => {
+    if (triggering) return
     setTriggering(true)
+    const prevRanAt = status?.ran_at ?? null
     try {
       await api.post('/scanner/trigger')
-      setTimeout(loadStatus, 3000)
+      // Poll every 2s until ran_at changes (scan done) or 90s timeout
+      let elapsed = 0
+      const poll = setInterval(async () => {
+        elapsed += 2
+        await loadStatus()
+        setStatus(s => {
+          if ((s?.ran_at && s.ran_at !== prevRanAt) || elapsed >= 90) {
+            clearInterval(poll)
+            setTriggering(false)
+          }
+          return s
+        })
+      }, 2000)
     } catch (e) {
       console.error(e)
-    } finally {
       setTriggering(false)
     }
   }
@@ -127,9 +140,14 @@ export default function Scanner() {
           <button
             onClick={trigger}
             disabled={triggering || isPaused}
-            className="bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
           >
-            {triggering ? 'Running…' : '▶ Run Now'}
+            {triggering ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Scanning…
+              </>
+            ) : '🔄 Scan Now'}
           </button>
         </div>
       </div>
@@ -175,7 +193,7 @@ export default function Scanner() {
                 ['Region', 'EU'],
                 ['Bookmakers', 'Betway ⭐, 1xBet ⭐, Pinnacle, Marathonbet, Betfair'],
                 ['Market', 'Head-to-head (H2H)'],
-                ['Poll Interval', '60 seconds'],
+                ['Poll Interval', '12 hours (auto) + manual'],
                 ['Requests Used', `${status?.requests_used ?? 0} this cycle`],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">

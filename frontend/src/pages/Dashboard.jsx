@@ -29,33 +29,74 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [scanStatus, setScanStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [scanning, setScanning] = useState(false)
+
+  const loadAll = async () => {
+    try {
+      const [arb, vb, scan] = await Promise.all([
+        api.get('/opportunities?page_size=1'),
+        api.get('/value-bets?page_size=1'),
+        api.get('/scanner/status'),
+      ])
+      setStats({ arbTotal: arb.data.total, vbTotal: vb.data.total })
+      setScanStatus(scan.data)
+      return scan.data
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [arb, vb, scan] = await Promise.all([
-          api.get('/opportunities?page_size=1'),
-          api.get('/value-bets?page_size=1'),
-          api.get('/scanner/status'),
-        ])
-        setStats({ arbTotal: arb.data.total, vbTotal: vb.data.total })
-        setScanStatus(scan.data)
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
-    }
-    load()
-    const t = setInterval(load, 30_000)
+    loadAll()
+    const t = setInterval(loadAll, 30_000)
     return () => clearInterval(t)
   }, [])
+
+  const handleScanNow = async () => {
+    if (scanning) return
+    setScanning(true)
+    const prevRanAt = scanStatus?.ran_at ?? null
+    try {
+      await api.post('/scanner/trigger')
+      // Poll every 2s until ran_at changes (scan complete) or 90s timeout
+      let elapsed = 0
+      const poll = setInterval(async () => {
+        elapsed += 2
+        const fresh = await loadAll()
+        if ((fresh?.ran_at && fresh.ran_at !== prevRanAt) || elapsed >= 90) {
+          clearInterval(poll)
+          setScanning(false)
+        }
+      }, 2000)
+    } catch (e) {
+      console.error(e)
+      setScanning(false)
+    }
+  }
 
   const quotaLow = scanStatus?.requests_remaining < 100
   const quotaWarning = scanStatus?.requests_remaining < 50
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Live overview · refreshes every 30s</p>
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Live overview · refreshes every 30s</p>
+        </div>
+        <button
+          onClick={handleScanNow}
+          disabled={scanning || scanStatus?.paused}
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+        >
+          {scanning ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Scanning…
+            </>
+          ) : (
+            <>🔄 Scan Now</>
+          )}
+        </button>
       </div>
 
       {/* Quota warning */}
