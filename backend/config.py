@@ -6,23 +6,20 @@ class Settings(BaseSettings):
     odds_api_key: str
     odds_api_base: str = "https://api.the-odds-api.com/v4"
 
-    # Football, Basketball, Tennis only
+    # Top 5 sports — best arb yield, fits within 500 requests/month at 8h interval
     sports: str = (
-        # Football / Soccer
-        "soccer_epl,soccer_uefa_champs_league,soccer_uefa_europa_league,"
-        "soccer_germany_bundesliga,soccer_spain_la_liga,soccer_france_ligue_one,"
-        "soccer_italy_serie_a,soccer_netherlands_eredivisie,soccer_portugal_primeira_liga,"
-        # Basketball
-        "basketball_nba,basketball_euroleague,"
-        # Tennis
-        "tennis_atp_barcelona_open,tennis_atp_munich,tennis_wta_stuttgart_open"
+        "soccer_epl,"
+        "soccer_uefa_champs_league,"
+        "soccer_spain_la_liga,"
+        "soccer_germany_bundesliga,"
+        "basketball_nba"
     )
 
     # Bookmakers (eu region — betway & onexbet are priority)
     bookmakers: str = "betway,onexbet,marathonbet,pinnacle,betfair_ex_eu"
 
-    # Increased to 300s (5 min) to conserve API quota across more sports
-    poll_interval_seconds: int = 300
+    # 8 hours — 5 sports × 3 scans/day = 15 calls/day = ~450/month (fits 500 quota)
+    poll_interval_seconds: int = 28800
 
     # Value bet settings
     min_ev_pct: float = 2.0

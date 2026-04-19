@@ -103,7 +103,7 @@ export default function Dashboard() {
                 { label: 'Arb Found', value: scanStatus?.arb_found ?? 0, color: 'text-green-400' },
                 { label: 'Value Found', value: scanStatus?.value_found ?? 0, color: 'text-blue-400' },
                 { label: 'Sports', value: scanStatus?.sports_scanned ?? 0 },
-                { label: 'Poll Interval', value: '5 min' },
+                { label: 'Poll Interval', value: '8 hrs' },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-gray-500">{r.label}</p>
@@ -118,9 +118,8 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Sports Covered</h2>
             <div className="flex flex-wrap gap-2 text-sm">
               {[
-                ['⚽', 'EPL, UCL, UEL, Bundesliga, La Liga, Ligue 1, Serie A, Eredivisie, Primeira Liga'],
-                ['🏀', 'NBA, EuroLeague'],
-                ['🎾', 'ATP Barcelona, ATP Munich, WTA Stuttgart'],
+                ['⚽', 'EPL, UCL, La Liga, Bundesliga'],
+                ['🏀', 'NBA'],
               ].map(([icon, label]) => (
                 <span key={label} className="bg-gray-800 text-gray-400 px-3 py-1.5 rounded-lg">
                   {icon} {label}
